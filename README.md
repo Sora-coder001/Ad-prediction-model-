@@ -100,6 +100,8 @@ Ad-prediction-model-/
 │   ├── models.py                   # model definitions and the three variants
 │   ├── train.py                    # 5-fold CV, per-model AUC, blend weights
 │   └── predict.py                  # refit on full data, write submission
+├── presentation/
+│   └── ad_click_presentation.html  # project summary slides (open in a browser)
 ├── requirements.txt
 └── README.md
 ```

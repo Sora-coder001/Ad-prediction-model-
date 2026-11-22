@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ad Click Prediction — Project Summary</title>
+<style>
+:root{
+  --bg:#ffffff; --fg:#1a1a1a; --muted:#5b5b5b; --accent:#2f6fed; --card:#f4f6fb; --border:#e2e6ee;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#14161a; --fg:#eef0f3; --muted:#a3a8b3; --accent:#6f9bff; --card:#1d2026; --border:#2a2d35;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#14161a; --fg:#eef0f3; --muted:#a3a8b3; --accent:#6f9bff; --card:#1d2026; --border:#2a2d35;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px); height:100%;}
+body{
+  height:100%; margin:0; background:var(--bg); color:var(--fg);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  display:flex; flex-direction:column;
+}
+header{
+  padding:14px 20px; border-bottom:1px solid var(--border);
+  display:flex; justify-content:space-between; align-items:center; flex-shrink:0;
+}
+header h1{font-size:15px; margin:0; color:var(--muted); font-weight:600;}
+#counter{font-size:13px; color:var(--muted);}
+main{flex:1; overflow:hidden; position:relative;}
+.slide{
+  position:absolute; inset:0; padding:32px 40px; overflow-y:auto;
+  display:none; flex-direction:column; justify-content:center; max-width:760px; margin:0 auto;
+}
+.slide.active{display:flex;}
+.slide h2{font-size:clamp(22px,4vw,32px); margin:0 0 18px; color:var(--accent);}
+.slide p{font-size:16px; line-height:1.55; color:var(--fg); margin:0 0 10px;}
+.slide ul{margin:0; padding-left:20px;}
+.slide li{font-size:15px; line-height:1.6; margin-bottom:8px;}
+.card{background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px 18px; margin-bottom:14px;}
+.tag{display:inline-block; font-size:12px; font-weight:600; color:var(--accent); background:var(--card); border:1px solid var(--border); padding:3px 10px; border-radius:999px; margin-bottom:12px; width:fit-content;}
+table{border-collapse:collapse; width:100%; font-size:14px; margin-top:6px;}
+th,td{text-align:left; padding:6px 10px; border-bottom:1px solid var(--border);}
+th{color:var(--muted); font-weight:600;}
+footer{
+  display:flex; justify-content:center; gap:14px; align-items:center;
+  padding:14px; border-top:1px solid var(--border); flex-shrink:0;
+  padding-bottom:calc(14px + env(safe-area-inset-bottom,0px));
+}
+button{
+  background:var(--accent); color:#fff; border:none; border-radius:8px;
+  padding:9px 18px; font-size:14px; cursor:pointer;
+}
+button:disabled{opacity:0.35; cursor:default;}
+.dots{display:flex; gap:6px;}
+.dot{width:7px; height:7px; border-radius:50%; background:var(--border);}
+.dot.active{background:var(--accent);}
+</style>
+</head>
+<body>
+<header>
+  <h1>Ad Click Prediction — Competition Summary</h1>
+  <div id="counter">1 / 6</div>
+</header>
+<main id="main">
+
+  <section class="slide active">
+    <span class="tag">01 · Preprocessing</span>
+    <h2>Preprocessing Steps</h2>
+    <ul>
+      <li>Dropped rows with a missing target (<code>clicked</code>) before any modeling.</li>
+      <li><strong>-1 sentinel handling:</strong> for tenure, cookie age, session time, and device-user count columns, added an <code>_na</code> flag then converted -1 to NaN — preserving "unavailable" as its own signal.</li>
+      <li>One-hot encoded 5 categorical columns (ad format, audience segment, placement, traffic channel, device platform), fit jointly across train and test so columns always match.</li>
+      <li>Built a median-imputed + standardized version of the features specifically for the linear model.</li>
+      <li>Added 3 engineered interaction features: publisher tenure ratio, session intensity (elapsed time × device users), and cookie/session ratio.</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <span class="tag">02 · Models Tried</span>
+    <h2>Models Tried</h2>
+    <div class="card">
+      <table>
+        <tr><th>Model</th><th>Type</th></tr>
+        <tr><td>Random Forest</td><td>Bagged trees</td></tr>
+        <tr><td>Extra Trees</td><td>Bagged trees</td></tr>
+        <tr><td>HistGradientBoosting</td><td>Gradient boosting</td></tr>
+        <tr><td>LightGBM</td><td>Gradient boosting</td></tr>
+        <tr><td>XGBoost</td><td>Gradient boosting</td></tr>
+        <tr><td>CatBoost</td><td>Gradient boosting</td></tr>
+        <tr><td>Ridge Logistic Regression</td><td>Linear</td></tr>
+      </table>
+    </div>
+    <p>LightGBM and XGBoost were tuned with randomized search over learning rate, depth, leaf/child count, subsampling, and regularization. Logistic regression's C (inverse regularization strength) was tuned via cross-validation.</p>
+  </section>
+
+  <section class="slide">
+    <span class="tag">03 · Evaluation</span>
+    <h2>Evaluation &amp; Comparison</h2>
+    <ul>
+      <li>Stratified 5-fold cross-validation, matching the competition's imbalanced target.</li>
+      <li>Metric: ROC-AUC — the competition's own evaluation metric.</li>
+      <li>Out-of-fold (OOF) predictions collected for every model, giving an unbiased comparison on the same rows.</li>
+      <li>Candidate blends compared by optimizing linear blend weights (Nelder-Mead) against OOF AUC, both equal-weighted and optimized.</li>
+    </ul>
+    <div class="card">
+      <table>
+        <tr><th>Model</th><th>OOF AUC</th></tr>
+        <tr><td>Random Forest</td><td>0.752</td></tr>
+        <tr><td>Extra Trees</td><td>0.765</td></tr>
+        <tr><td>Ridge LogReg</td><td>0.783</td></tr>
+        <tr><td>XGBoost</td><td>0.795</td></tr>
+        <tr><td>LightGBM</td><td>0.797</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="slide">
+    <span class="tag">04 · Final Model</span>
+    <h2>Final Model</h2>
+    <div class="card">
+      <p><strong>Blend: LightGBM + Ridge Logistic Regression</strong></p>
+      <p>Optimized weights on the full 7-model set gave LightGBM ≈ 0.79, logistic regression ≈ 0.18, Extra Trees ≈ 0.02, and zero weight to Random Forest, XGBoost, HGB, and CatBoost.</p>
+      <p>Weighted ensemble OOF AUC: <strong>0.7988</strong>, versus 0.7972 for LightGBM alone.</p>
+    </div>
+    <p>The near-zero-weight models were dropped, leaving a simple two-model blend that keeps essentially all of the ensemble's benefit.</p>
+  </section>
+
+  <section class="slide">
+    <span class="tag">05 · Why This Model</span>
+    <h2>Why This Model Was Selected</h2>
+    <ul>
+      <li>LightGBM had the highest solo OOF AUC of every model tried.</li>
+      <li>XGBoost, HGB, and CatBoost are all gradient-boosted trees trained on the same features — their predictions were highly correlated with LightGBM's, so the optimizer assigned them zero weight: they were redundant, not just weaker.</li>
+      <li>Logistic regression scored lower alone, but it models the data linearly rather than through trees, so its errors are genuinely different — it earned real weight in the blend.</li>
+      <li>Random Forest and Extra Trees added negligible value once boosting and a linear model were present.</li>
+      <li>Net result: a 2-model blend that is simpler and faster than the full 7-model ensemble, at effectively the same AUC.</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <span class="tag">06 · Lessons</span>
+    <h2>Key Lessons &amp; Insights</h2>
+    <ul>
+      <li><strong>Gradient boosting dominates</strong> on this kind of imbalanced, mixed-type tabular data.</li>
+      <li><strong>Ensembling only helps with diversity.</strong> Blending near-identical models (LightGBM, XGBoost, CatBoost) added nothing — model family diversity mattered more than model count.</li>
+      <li><strong>A weaker model can still be valuable</strong> in a blend if it makes different mistakes — logistic regression proved this despite its lower solo score.</li>
+      <li><strong>Sentinel values carry information.</strong> Flagging -1 as "unavailable" before imputing preserved a real signal rather than treating it as a literal small number.</li>
+      <li><strong>Simplicity paid off.</strong> A 2-model blend matched a 7-model ensemble almost exactly — added complexity did not translate into added performance.</li>
+    </ul>
+  </section>
+
+</main>
+<footer>
+  <button id="prevBtn">Prev</button>
+  <div class="dots" id="dots"></div>
+  <button id="nextBtn">Next</button>
+</footer>
+<script>
+const slides = document.querySelectorAll('.slide');
+const counter = document.getElementById('counter');
+const dotsWrap = document.getElementById('dots');
+let i = 0;
+slides.forEach((_, idx) => {
+  const d = document.createElement('div');
+  d.className = 'dot' + (idx === 0 ? ' active' : '');
+  dotsWrap.appendChild(d);
+});
+const dots = document.querySelectorAll('.dot');
+function show(idx){
+  slides[i].classList.remove('active');
+  dots[i].classList.remove('active');
+  i = Math.max(0, Math.min(slides.length - 1, idx));
+  slides[i].classList.add('active');
+  dots[i].classList.add('active');
+  counter.textContent = (i+1) + ' / ' + slides.length;
+  document.getElementById('prevBtn').disabled = i === 0;
+  document.getElementById('nextBtn').disabled = i === slides.length - 1;
+}
+document.getElementById('prevBtn').addEventListener('click', () => show(i-1));
+document.getElementById('nextBtn').addEventListener('click', () => show(i+1));
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight') show(i+1);
+  if (e.key === 'ArrowLeft') show(i-1);
+});
+show(0);
+</script>
+</body>
+</html>
